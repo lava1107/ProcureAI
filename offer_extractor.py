@@ -289,12 +289,12 @@ class OfferExtractor:
 
         # Pattern G: Standard quotes (digits, words, or currency symbols)
         if raw_price is None:
-            m_std = re.search(r'(?:quote|offer|is|do|at)\s+(?:₹|Rs\.?|INR|\$|USD|€|EUR|£|GBP)?\s*([\d,]+(?:\.\d+)?|\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|lakh|and|-|\s)+?\b)\s*(?:rupees|per|\/|$)', latest, re.I)
+            m_std = re.search(r'(?:quote|offer|is|do|at)\s+(?:₹|Rs\.?|INR|\$|USD|€|EUR|£|GBP)?\s*([\d,]+(?:\.\d+)?(?:\s*k\b|\s*lakh[s]?\b)?|\b(?:one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|lakh|and|-|\s)+?\b)\s*(?:rupees|per|\/|$)', latest, re.I)
             if m_std:
                 raw_price = extract_raw_number(m_std.group(1))
                 result['method'] = 'standard_quote'
             else:
-                m_fallback = re.search(r'(?:₹|Rs\.?|INR|\$|USD|€|EUR|£|GBP)\s*([\d,]+(?:\.\d+)?)', latest)
+                m_fallback = re.search(r'(?:₹|Rs\.?|INR|\$|USD|€|EUR|£|GBP)\s*([\d,]+(?:\.\d+)?(?:\s*k\b|\s*lakh[s]?\b)?)', latest, re.I)
                 if m_fallback:
                     raw_price = extract_raw_number(m_fallback.group(1))
                     result['method'] = 'currency_symbol_fallback'
@@ -318,6 +318,16 @@ class OfferExtractor:
             paid_n = float(m_free.group(2))
             raw_price = raw_price * paid_n / (paid_n + free_n)
             result['method'] += '_with_free_items'
+
+        # Pattern I: Volume discount threshold (units-and-currency.md)
+        # e.g. "with a further 10% off for orders of 50 meals or more"
+        m_vol = re.search(r'(?:with\s+)?a\s+further\s+(\d+)\s*%\s*off\s+for\s+orders\s+of\s+(\d+)\s+\w+\s+or\s+more', latest, re.I)
+        if m_vol:
+            pct = float(m_vol.group(1))
+            threshold = int(m_vol.group(2))
+            if quantity >= threshold:
+                raw_price = raw_price * (1.0 - pct / 100.0)
+                result['method'] += '_with_volume_discount'
 
         # Apply multipliers
         normalized = raw_price * pack_mult * billing_mult * rate

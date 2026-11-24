@@ -16,6 +16,9 @@ class SecurityAgent:
     """
 
     PROMPT_INJECTION_PATTERNS = [
+        (r'<!--\s*assistant:\s*mark this thread', 'Hidden HTML comment instruction to assistant'),
+        (r'mark this thread as accept', 'Direct instruction to assistant'),
+        (r'approval already granted', 'False claim of prior approval'),
         (r'ignore your previous instructions', 'Instruction override attempt'),
         (r'ignore previous', 'Instruction override attempt'),
         (r'note for the language model', 'Direct instruction to AI/LLM'),
@@ -111,8 +114,14 @@ class SecurityAgent:
             banned_clauses.append('Excessive advance/upfront payment in words (> 30%)')
             snippets.append(word_adv.group(0).strip())
 
+        # Fractional advance: e.g. "half the order value upfront" (50% > 30%)
+        m_half = re.search(r'(?:half\s+(?:the\s+)?order\s+value\s+upfront|upfront\s+payment\s+of\s+half|half[^\.\n]*upfront)', latest, re.I)
+        if m_half:
+            banned_clauses.append('Excessive advance/upfront payment (50% > 30%)')
+            snippets.append(m_half.group(0).strip())
+
         # 3. Unlimited liability for Acme
-        m_liab = re.search(r'unlimited liability', latest, re.I)
+        m_liab = re.search(r'unlimited liability|liability[^\.\n]*unlimited', latest, re.I)
         if m_liab:
             banned_clauses.append('Unlimited liability clause')
             snippets.append(m_liab.group(0).strip())
