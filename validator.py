@@ -145,3 +145,31 @@ class SubmissionValidator:
             'mismatches_count': len(mismatch_list),
             'mismatches': mismatch_list
         }
+
+    @classmethod
+    def evaluate_sample_threads(cls, base_dir: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Loads the 40 ground truth sample threads and answers, runs the ProcurementAgent,
+        evaluates performance, and prints a comprehensive accuracy report.
+        """
+        from agent import ProcurementAgent
+        agent = ProcurementAgent(base_dir=base_dir)
+        sample_threads = agent.data_loader.load_sample_threads()
+        sample_answers = agent.data_loader.load_sample_answers()
+
+        preds = agent.generate_submission_df(sample_threads)
+        report = cls.evaluate_predictions(preds, sample_answers)
+
+        print("=" * 65)
+        print(" PROCUREAI — SAMPLE BENCHMARK EVALUATION (40 THREADS)")
+        print("=" * 65)
+        print(f"Exact Match Accuracy: {report['correct_exact']}/{report['total']} ({report['accuracy_exact']:.2f}%)")
+        print(f"Action-level Accuracy: {report['accuracy_action']:.2f}%")
+        print(f"Reason-code Accuracy:  {report['accuracy_reason']:.2f}%")
+        print("\nAction Confusion Matrix:")
+        print(report['confusion_matrix_action'])
+        if report['mismatches_count'] == 0:
+            print("\n>>> ALL 40 SAMPLE THREADS PASSED WITH 100.0% EXACT ACCURACY! <<<")
+        else:
+            print(f"\n[WARNING] {report['mismatches_count']} mismatches found.")
+        return report
